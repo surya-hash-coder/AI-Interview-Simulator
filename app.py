@@ -418,16 +418,6 @@ Return ONLY this JSON:
 
     return jsonify({"success": False, "error": "Could not generate report"}), 500
 
-
-if __name__ == "__main__":
-    print("\n" + "★" * 50)
-    print("  InterviewAI Server")
-    print("  App:  http://localhost:5000")
-    print("  Test: http://localhost:5000/test")
-    if not GROQ_KEY:
-        print("  WARNING: GROQ_API_KEY not set in .env file!")
-    print("★" * 50 + "\n")
-
 import os
 
 if __name__ == "__main__":
