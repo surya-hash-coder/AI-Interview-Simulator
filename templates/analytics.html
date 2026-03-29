@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Analytics – InterviewAI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="app-body">
+
+  <aside class="sidebar">
+    <div class="sidebar-logo">Interview<span>AI</span></div>
+    <nav class="sidebar-nav">
+      <a href="/dashboard" class="sidebar-link"><span class="s-icon">⊞</span> Dashboard</a>
+      <a href="/upload" class="sidebar-link"><span class="s-icon">📄</span> Resume</a>
+      <a href="/interview" class="sidebar-link"><span class="s-icon">🎙️</span> Interview</a>
+      <a href="/analytics" class="sidebar-link active"><span class="s-icon">📊</span> Analytics</a>
+    </nav>
+    <div class="sidebar-bottom">
+      <button class="sidebar-link" onclick="localStorage.clear();window.location.href='/'" style="background:none;border:none;width:100%;text-align:left;cursor:pointer;color:inherit;">
+        <span class="s-icon">→</span> Log Out
+      </button>
+    </div>
+  </aside>
+
+  <main class="app-main">
+    <div class="app-header">
+      <div>
+        <h1 class="app-page-title">Analytics</h1>
+        <p class="app-page-sub">Track your interview performance over time.</p>
+      </div>
+      <div class="header-actions">
+        <a href="/interview" class="btn-primary">+ New Interview</a>
+      </div>
+    </div>
+
+    <!-- No data state -->
+    <div id="no-data" style="display:none" class="empty-state" style="margin-top:60px">
+      <div class="empty-icon">📊</div>
+      <h3>No interview data yet</h3>
+      <p>Complete your first interview to see analytics here.</p>
+      <a href="/interview" class="btn-primary" style="margin-top:16px;display:inline-block">Start Interview →</a>
+    </div>
+
+    <!-- Analytics Content -->
+    <div id="analytics-content">
+      <!-- Summary Stats -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-icon" style="background:#e8f4fd">🎯</div>
+          <div class="stat-info">
+            <div class="stat-value" id="a-total">0</div>
+            <div class="stat-label">Total Sessions</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:#eef9ee">📈</div>
+          <div class="stat-info">
+            <div class="stat-value" id="a-avg">—</div>
+            <div class="stat-label">Avg Score</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:#fef6e8">🏆</div>
+          <div class="stat-info">
+            <div class="stat-value" id="a-best">—</div>
+            <div class="stat-label">Best Score</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:#fde8f5">🚀</div>
+          <div class="stat-info">
+            <div class="stat-value" id="a-trend">—</div>
+            <div class="stat-label">Latest Score</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div class="analytics-grid">
+        <div class="analytics-card">
+          <h2>Score History</h2>
+          <p class="chart-sub">Your interview scores over time</p>
+          <canvas id="line-chart" height="200"></canvas>
+        </div>
+        <div class="analytics-card">
+          <h2>Performance by Type</h2>
+          <p class="chart-sub">Average scores across interview types</p>
+          <canvas id="bar-chart" height="200"></canvas>
+        </div>
+      </div>
+
+      <div class="analytics-grid" style="grid-template-columns:1fr 1fr 1fr;margin-top:24px">
+        <div class="analytics-card">
+          <h2>Technical vs Communication</h2>
+          <canvas id="radar-chart" height="220"></canvas>
+        </div>
+        <div class="analytics-card" style="grid-column:span 2">
+          <h2>Session History</h2>
+          <div id="session-history"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    if (!localStorage.getItem('interviewai_user')) window.location.href = '/login';
+
+    function loadAnalytics() {
+      const sessions = JSON.parse(localStorage.getItem('interviewai_sessions') || '[]');
+
+      if (sessions.length === 0) {
+        document.getElementById('no-data').style.display = 'block';
+        document.getElementById('analytics-content').style.display = 'none';
+        return;
+      }
+
+      // Stats
+      const scores = sessions.map(s => s.overall_score).filter(Boolean);
+      const avg = (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1);
+      const best = Math.max(...scores).toFixed(1);
+
+      document.getElementById('a-total').textContent = sessions.length;
+      document.getElementById('a-avg').textContent = avg + '/10';
+      document.getElementById('a-best').textContent = best + '/10';
+      document.getElementById('a-trend').textContent = (scores[scores.length-1] || 0) + '/10';
+
+      // Line chart — Score History
+      const lineCtx = document.getElementById('line-chart').getContext('2d');
+      new Chart(lineCtx, {
+        type: 'line',
+        data: {
+          labels: sessions.map((s,i) => `Session ${i+1}`),
+          datasets: [{
+            label: 'Overall Score',
+            data: scores,
+            borderColor: '#6366f1',
+            backgroundColor: 'rgba(99,102,241,0.08)',
+            pointBackgroundColor: '#6366f1',
+            pointRadius: 5, tension: 0.4, fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: { beginAtZero: false, min: 0, max: 10, ticks: { stepSize: 2 } },
+            x: { grid: { display: false } }
+          },
+          plugins: { legend: { display: false } }
+        }
+      });
+
+      // Bar chart — By Type
+      const typeMap = {};
+      sessions.forEach(s => {
+        const t = s.type || 'general';
+        if (!typeMap[t]) typeMap[t] = [];
+        typeMap[t].push(s.overall_score);
+      });
+      const typeLabels = Object.keys(typeMap);
+      const typeAvgs = typeLabels.map(t => {
+        const vals = typeMap[t];
+        return (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1);
+      });
+      const colors = ['#6366f1','#22c55e','#f59e0b','#ef4444','#8b5cf6','#06b6d4'];
+
+      const barCtx = document.getElementById('bar-chart').getContext('2d');
+      new Chart(barCtx, {
+        type: 'bar',
+        data: {
+          labels: typeLabels.map(l => l.charAt(0).toUpperCase() + l.slice(1)),
+          datasets: [{
+            label: 'Avg Score',
+            data: typeAvgs,
+            backgroundColor: colors.slice(0, typeLabels.length),
+            borderRadius: 8, borderSkipped: false
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: { beginAtZero: true, max: 10, ticks: { stepSize: 2 } },
+            x: { grid: { display: false } }
+          },
+          plugins: { legend: { display: false } }
+        }
+      });
+
+      // Radar chart
+      const allAnswers = sessions.flatMap(s => s.answers || []);
+      const techScores = allAnswers.map(a=>a.technical_score).filter(Boolean);
+      const commScores = allAnswers.map(a=>a.communication_score).filter(Boolean);
+      const avgTech = techScores.length ? (techScores.reduce((a,b)=>a+b,0)/techScores.length).toFixed(1) : 0;
+      const avgComm = commScores.length ? (commScores.reduce((a,b)=>a+b,0)/commScores.length).toFixed(1) : 0;
+
+      const radarCtx = document.getElementById('radar-chart').getContext('2d');
+      new Chart(radarCtx, {
+        type: 'radar',
+        data: {
+          labels: ['Technical', 'Communication', 'Consistency', 'Speed', 'Accuracy'],
+          datasets: [{
+            label: 'Your Profile',
+            data: [avgTech, avgComm, avg, Math.min(avg * 1.1, 10), avg],
+            borderColor: '#6366f1',
+            backgroundColor: 'rgba(99,102,241,0.15)',
+            pointBackgroundColor: '#6366f1'
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: { r: { beginAtZero: true, max: 10, ticks: { stepSize: 2 } } },
+          plugins: { legend: { display: false } }
+        }
+      });
+
+      // Session history table
+      const histEl = document.getElementById('session-history');
+      histEl.innerHTML = sessions.slice().reverse().map(s => `
+        <div class="session-row">
+          <div class="session-info">
+            <div class="session-dot"></div>
+            <div>
+              <strong>${(s.type||'General').charAt(0).toUpperCase()+(s.type||'general').slice(1)} Interview</strong>
+              <small>${new Date(s.date).toLocaleString('en-IN',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</small>
+            </div>
+          </div>
+          <div class="session-questions">${s.questions_count || '?'} questions</div>
+          <div class="session-score score-${s.overall_score >= 8 ? 'high' : s.overall_score >= 6 ? 'mid' : 'low'}">${s.overall_score}/10</div>
+          <a href="/result?session=${s.id}" class="btn-ghost-sm">View →</a>
+        </div>
+      `).join('');
+    }
+
+    loadAnalytics();
+  </script>
+</body>
+</html>

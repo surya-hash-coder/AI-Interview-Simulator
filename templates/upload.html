@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Upload Resume – InterviewAI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="app-body">
+  <aside class="sidebar">
+    <div class="sidebar-logo">Interview<span>AI</span></div>
+    <nav class="sidebar-nav">
+      <a href="/dashboard" class="sidebar-link"><span class="s-icon">⊞</span> Dashboard</a>
+      <a href="/upload"    class="sidebar-link active"><span class="s-icon">📄</span> Resume</a>
+      <a href="/interview" class="sidebar-link"><span class="s-icon">🎙️</span> Interview</a>
+      <a href="/analytics" class="sidebar-link"><span class="s-icon">📊</span> Analytics</a>
+    </nav>
+    <div class="sidebar-bottom">
+      <button class="sidebar-link" onclick="localStorage.clear();window.location.href='/'"
+        style="background:none;border:none;width:100%;text-align:left;cursor:pointer;color:inherit;">
+        <span class="s-icon">→</span> Log Out
+      </button>
+    </div>
+  </aside>
+
+  <main class="app-main">
+    <div class="app-header">
+      <div>
+        <h1 class="app-page-title">Upload Resume</h1>
+        <p class="app-page-sub">AI will scan your entire resume and generate questions from it.</p>
+      </div>
+    </div>
+
+    <div class="upload-container">
+
+      <!-- Drop Zone -->
+      <div class="upload-card" id="upload-zone">
+        <div class="upload-icon">📄</div>
+        <h2>Drop your resume PDF here</h2>
+        <p>or click to browse</p>
+        <small style="color:var(--text-3)">Must be a text-based PDF (not a scanned image) · Max 5MB</small>
+        <input type="file" id="resume-file" accept=".pdf" style="display:none" onchange="handleFile(event)"/>
+        <button class="btn-primary" style="margin-top:20px"
+          onclick="document.getElementById('resume-file').click()">
+          Choose PDF
+        </button>
+      </div>
+
+      <!-- Progress -->
+      <div id="upload-status" style="display:none" class="upload-status-card">
+        <div class="upload-progress-wrap">
+          <div class="upload-progress-bar" id="prog"></div>
+        </div>
+        <p id="status-text" style="margin-top:12px;font-weight:600;">Uploading...</p>
+        <p id="status-detail" style="font-size:0.82rem;color:var(--text-3);margin-top:4px;"></p>
+      </div>
+
+      <!-- Error -->
+      <div id="upload-error" style="display:none;margin-top:16px" class="resume-warning-box">
+        ❌ <span id="error-msg"></span>
+      </div>
+
+      <!-- Results -->
+      <div id="upload-results" style="display:none" class="upload-results-card">
+
+        <!-- Stats bar -->
+        <div style="display:flex;gap:12px;flex-wrap:wrap;padding:10px 14px;
+          background:rgba(99,102,241,0.07);border:1px solid rgba(99,102,241,0.2);
+          border-radius:8px;font-size:0.78rem;color:var(--text-2);margin-bottom:20px;">
+          <span id="stat-chars">—</span>
+          <span>·</span>
+          <span id="stat-skills">—</span>
+          <span>·</span>
+          <span id="stat-questions">—</span>
+          <span>·</span>
+          <span id="stat-api">AI: checking...</span>
+        </div>
+
+        <div class="result-header">
+          <span class="result-icon">✅</span>
+          <div>
+            <h2>Resume Scanned!</h2>
+            <p id="resume-summary" style="color:var(--text-2);font-size:0.9rem;margin-top:4px;"></p>
+          </div>
+        </div>
+
+        <div class="result-section">
+          <h3>Skills Found in Resume</h3>
+          <div id="skills-out" class="skill-chips"></div>
+        </div>
+
+        <div class="result-section">
+          <h3>Questions Generated from YOUR Resume</h3>
+          <p style="font-size:0.8rem;color:var(--text-3);margin-bottom:12px;">
+            Every question below is based on something specific in your resume.
+          </p>
+          <div id="questions-out" class="questions-list"></div>
+        </div>
+
+        <div class="result-actions">
+          <a href="/interview?mode=resume" class="btn-primary btn-lg">Start Resume Interview →</a>
+          <button class="btn-outline" onclick="resetUpload()">Upload Different Resume</button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    if (!localStorage.getItem('interviewai_user')) window.location.href = '/login';
+
+    // drag and drop
+    var zone = document.getElementById('upload-zone');
+    zone.addEventListener('dragover',  function(e){ e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', function(){  zone.classList.remove('drag-over'); });
+    zone.addEventListener('drop', function(e){
+      e.preventDefault(); zone.classList.remove('drag-over');
+      if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]);
+    });
+    function handleFile(e){ if (e.target.files[0]) processFile(e.target.files[0]); }
+
+    async function processFile(file) {
+      if (!file.name.toLowerCase().endsWith('.pdf')){ showErr('Please upload a PDF file.'); return; }
+      if (file.size > 5*1024*1024){ showErr('File too large. Max 5MB.'); return; }
+
+      document.getElementById('upload-zone').style.display   = 'none';
+      document.getElementById('upload-error').style.display  = 'none';
+      document.getElementById('upload-status').style.display = 'block';
+
+      var prog = document.getElementById('prog');
+      var pct  = 0;
+      var iv   = setInterval(function(){ pct = Math.min(pct + Math.random()*8, 70); prog.style.width = pct+'%'; }, 500);
+
+      setStatus('Reading your PDF...', 'Extracting all text from resume...');
+
+      try {
+        var fd = new FormData();
+        fd.append('resume', file);
+
+        var resp = await fetch('/upload_resume', { method:'POST', body:fd });
+        var data = await resp.json();
+        clearInterval(iv);
+
+        console.log('[UPLOAD FULL RESPONSE]', data);
+
+        if (!data.success) {
+          document.getElementById('upload-status').style.display = 'none';
+          document.getElementById('upload-zone').style.display   = 'block';
+          showErr(data.error || 'Upload failed');
+          return;
+        }
+
+        pct = 80; prog.style.width = pct+'%';
+        setStatus('Saving to browser...', 'Storing resume data locally...');
+
+        // ── SAVE COMPLETE RESUME DATA ─────────────────────────────
+        // resume_text = the full extracted text from the PDF
+        // questions   = AI-generated questions from the resume
+        // skills      = skills found in the resume
+        var toSave = {
+          resume_text: data.resume_text || '',      // full text — sent to AI during interview
+          summary:     data.summary     || '',
+          skills:      data.skills_detected || [],
+          questions:   data.questions   || []       // pre-generated at upload time
+        };
+
+        localStorage.setItem('interviewai_resume', JSON.stringify(toSave));
+
+        // Verify
+        var check = JSON.parse(localStorage.getItem('interviewai_resume') || 'null');
+        console.log('[SAVED]', {
+          text_length:     check ? check.resume_text.length : 'FAILED',
+          skills:          check ? check.skills : 'FAILED',
+          questions_count: check ? check.questions.length : 'FAILED',
+          first_question:  check && check.questions[0] ? check.questions[0] : 'NONE'
+        });
+
+        prog.style.width = '100%';
+        setTimeout(function(){
+          document.getElementById('upload-status').style.display  = 'none';
+          showResults(data);
+        }, 500);
+
+      } catch(err) {
+        clearInterval(iv);
+        document.getElementById('upload-status').style.display = 'none';
+        document.getElementById('upload-zone').style.display   = 'block';
+        showErr('Upload failed: ' + err.message + '. Is the server running?');
+      }
+    }
+
+    function showResults(data) {
+      var s = data.stats || {};
+
+      document.getElementById('stat-chars').textContent     = (s.chars_extracted || (data.resume_text||'').length) + ' chars extracted';
+      document.getElementById('stat-skills').textContent    = (s.skills_found    || (data.skills_detected||[]).length) + ' skills found';
+      document.getElementById('stat-questions').textContent = (s.questions_made  || (data.questions||[]).length) + ' questions generated';
+      document.getElementById('stat-api').textContent       = 'AI: ' + (s.ai_connected !== false ? '✅ Connected' : '❌ Offline');
+
+      document.getElementById('resume-summary').textContent = data.summary || '';
+
+      var skills = data.skills_detected || [];
+      document.getElementById('skills-out').innerHTML = skills.length
+        ? skills.map(function(s){ return '<span class="chip">'+s+'</span>'; }).join('')
+        : '<span style="color:var(--text-3)">No skills detected. PDF may be image-based — try a different PDF.</span>';
+
+      var qs = data.questions || [];
+      if (qs.length > 0) {
+        document.getElementById('questions-out').innerHTML = qs.map(function(q,i){
+          return '<div class="question-item"><span class="q-num">Q'+(i+1)+'</span><p>'+q+'</p></div>';
+        }).join('');
+      } else {
+        document.getElementById('questions-out').innerHTML =
+          '<div style="padding:16px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:8px;color:#fbbf24;font-size:0.875rem;">' +
+          '⚠️ No questions generated at upload time. ' +
+          (s.ai_connected === false
+            ? 'AI is not reachable — check internet and visit <a href="/test" style="color:var(--indigo-2)">/test</a>.'
+            : 'Questions will be generated fresh when you start the interview.') +
+          '</div>';
+      }
+
+      document.getElementById('upload-results').style.display = 'block';
+    }
+
+    function setStatus(main, detail) {
+      document.getElementById('status-text').textContent   = main;
+      document.getElementById('status-detail').textContent = detail;
+    }
+
+    function showErr(msg) {
+      document.getElementById('error-msg').textContent    = msg;
+      document.getElementById('upload-error').style.display = 'block';
+    }
+
+    function resetUpload() {
+      localStorage.removeItem('interviewai_resume');
+      ['upload-zone','upload-status','upload-results','upload-error'].forEach(function(id){
+        var style = id === 'upload-zone' ? 'block' : 'none';
+        document.getElementById(id).style.display = style;
+      });
+      document.getElementById('prog').style.width     = '0%';
+      document.getElementById('resume-file').value    = '';
+    }
+
+    // Show existing on load
+    (function(){
+      var ex = null;
+      try { ex = JSON.parse(localStorage.getItem('interviewai_resume')||'null'); } catch(e){}
+      if (ex) {
+        console.log('[EXISTING RESUME]', { text_len: (ex.resume_text||'').length, skills: ex.skills, questions: (ex.questions||[]).length });
+        showResults({
+          resume_text:     ex.resume_text,
+          summary:         ex.summary,
+          skills_detected: ex.skills,
+          questions:       ex.questions,
+          stats: { chars_extracted:(ex.resume_text||'').length, skills_found:(ex.skills||[]).length, questions_made:(ex.questions||[]).length, ai_connected:true }
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

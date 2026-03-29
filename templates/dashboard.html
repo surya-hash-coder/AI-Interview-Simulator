@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard – InterviewAI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="app-body">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">Interview<span>AI</span></div>
+    <nav class="sidebar-nav">
+      <a href="/dashboard" class="sidebar-link active">
+        <span class="s-icon">⊞</span> Dashboard
+      </a>
+      <a href="/upload" class="sidebar-link">
+        <span class="s-icon">📄</span> Resume
+      </a>
+      <a href="/interview" class="sidebar-link">
+        <span class="s-icon">🎙️</span> Interview
+      </a>
+      <a href="/analytics" class="sidebar-link">
+        <span class="s-icon">📊</span> Analytics
+      </a>
+    </nav>
+    <div class="sidebar-bottom">
+      <button class="sidebar-link" onclick="handleLogout()" style="background:none;border:none;width:100%;text-align:left;cursor:pointer;color:inherit;">
+        <span class="s-icon">→</span> Log Out
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="app-main">
+    <!-- Header -->
+    <div class="app-header">
+      <div>
+        <h1 class="app-page-title">Dashboard</h1>
+        <p class="app-page-sub">Welcome back, <span id="user-name">there</span>! Ready to practice?</p>
+      </div>
+      <div class="header-actions">
+        <a href="/interview" class="btn-primary">+ Start Interview</a>
+      </div>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-icon" style="background:#e8f4fd">🎯</div>
+        <div class="stat-info">
+          <div class="stat-value" id="total-interviews">0</div>
+          <div class="stat-label">Total Interviews</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:#eef9ee">⭐</div>
+        <div class="stat-info">
+          <div class="stat-value" id="avg-score">—</div>
+          <div class="stat-label">Average Score</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:#fef6e8">🔥</div>
+        <div class="stat-info">
+          <div class="stat-value" id="best-score">—</div>
+          <div class="stat-label">Best Score</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:#fde8f5">📈</div>
+        <div class="stat-info">
+          <div class="stat-value" id="improvement">+0%</div>
+          <div class="stat-label">Improvement</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="dashboard-grid">
+      <div class="dash-card dash-action-card">
+        <h2>Quick Start</h2>
+        <p>Jump into a mock interview and get instant AI feedback.</p>
+        <div class="action-options">
+          <a href="/interview?type=general" class="action-option">
+            <span>🤖</span>
+            <div><strong>General Interview</strong><small>Common software dev questions</small></div>
+          </a>
+          <a href="/upload" class="action-option">
+            <span>📄</span>
+            <div><strong>Resume-Based</strong><small>Questions tailored to you</small></div>
+          </a>
+          <a href="/interview?type=dsa" class="action-option">
+            <span>💻</span>
+            <div><strong>Data Structures</strong><small>Focus on DSA concepts</small></div>
+          </a>
+        </div>
+      </div>
+
+      <!-- Resume Status -->
+      <div class="dash-card">
+        <h2>Resume Status</h2>
+        <div id="resume-status">
+          <div class="resume-empty">
+            <div class="resume-empty-icon">📄</div>
+            <p>No resume uploaded yet</p>
+            <a href="/upload" class="btn-outline" style="margin-top:12px;display:inline-block">Upload Resume →</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Sessions -->
+      <div class="dash-card dash-full">
+        <div class="card-header-row">
+          <h2>Recent Interview Sessions</h2>
+          <a href="/analytics" class="btn-ghost-sm">View All</a>
+        </div>
+        <div id="recent-sessions">
+          <div class="empty-state">
+            <div class="empty-icon">🎙️</div>
+            <h3>No interviews yet</h3>
+            <p>Start your first interview to see your results here.</p>
+            <a href="/interview" class="btn-primary" style="margin-top:16px;display:inline-block">Start Now →</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // ── Auth Guard ──
+    const userStr = localStorage.getItem('interviewai_user');
+    if (!userStr) window.location.href = '/login';
+    const user = JSON.parse(userStr || '{}');
+    document.getElementById('user-name').textContent = user.name?.split(' ')[0] || 'there';
+
+    // ── Load Sessions from localStorage ──
+    function loadDashboard() {
+      const sessions = JSON.parse(localStorage.getItem('interviewai_sessions') || '[]');
+      const resumeData = JSON.parse(localStorage.getItem('interviewai_resume') || 'null');
+
+      // Stats
+      document.getElementById('total-interviews').textContent = sessions.length;
+
+      if (sessions.length > 0) {
+        const scores = sessions.map(s => s.overall_score).filter(Boolean);
+        const avg = (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1);
+        const best = Math.max(...scores).toFixed(1);
+        document.getElementById('avg-score').textContent = avg + '/10';
+        document.getElementById('best-score').textContent = best + '/10';
+
+        if (scores.length >= 2) {
+          const imp = ((scores[scores.length-1] - scores[0]) / scores[0] * 100).toFixed(0);
+          document.getElementById('improvement').textContent = (imp >= 0 ? '+' : '') + imp + '%';
+        }
+
+        // Recent sessions
+        const el = document.getElementById('recent-sessions');
+        el.innerHTML = sessions.slice(-5).reverse().map(s => `
+          <div class="session-row">
+            <div class="session-info">
+              <div class="session-dot"></div>
+              <div>
+                <strong>${s.type || 'General Interview'}</strong>
+                <small>${new Date(s.date).toLocaleDateString('en-IN', {day:'numeric',month:'short',year:'numeric'})}</small>
+              </div>
+            </div>
+            <div class="session-score score-${getScoreClass(s.overall_score)}">${s.overall_score}/10</div>
+            <a href="/result?session=${s.id}" class="btn-ghost-sm">View →</a>
+          </div>
+        `).join('');
+      }
+
+      // Resume
+      if (resumeData) {
+        document.getElementById('resume-status').innerHTML = `
+          <div class="resume-uploaded">
+            <div class="resume-icon-big">✅</div>
+            <div>
+              <strong>Resume Uploaded</strong>
+              <p>${resumeData.summary?.slice(0,120) || 'Resume processed successfully'}...</p>
+              <div class="skill-chips">${(resumeData.skills || []).map(s=>`<span class="chip">${s}</span>`).join('')}</div>
+            </div>
+            <a href="/upload" class="btn-ghost-sm">Replace</a>
+          </div>`;
+      }
+    }
+
+    function getScoreClass(score) {
+      if (score >= 8) return 'high';
+      if (score >= 6) return 'mid';
+      return 'low';
+    }
+
+    function handleLogout() {
+      localStorage.clear();
+      window.location.href = '/';
+    }
+
+    loadDashboard();
+  </script>
+</body>
+</html>

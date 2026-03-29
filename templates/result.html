@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Results – InterviewAI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="app-body">
+
+  <aside class="sidebar">
+    <div class="sidebar-logo">Interview<span>AI</span></div>
+    <nav class="sidebar-nav">
+      <a href="/dashboard" class="sidebar-link"><span class="s-icon">⊞</span> Dashboard</a>
+      <a href="/upload" class="sidebar-link"><span class="s-icon">📄</span> Resume</a>
+      <a href="/interview" class="sidebar-link"><span class="s-icon">🎙️</span> Interview</a>
+      <a href="/analytics" class="sidebar-link"><span class="s-icon">📊</span> Analytics</a>
+    </nav>
+    <div class="sidebar-bottom">
+      <button class="sidebar-link" onclick="localStorage.clear();window.location.href='/'" style="background:none;border:none;width:100%;text-align:left;cursor:pointer;color:inherit;">
+        <span class="s-icon">→</span> Log Out
+      </button>
+    </div>
+  </aside>
+
+  <main class="app-main">
+    <div class="app-header">
+      <div>
+        <h1 class="app-page-title">Interview Results</h1>
+        <p class="app-page-sub">Here's your detailed performance breakdown.</p>
+      </div>
+      <div class="header-actions">
+        <a href="/interview" class="btn-primary">Try Again →</a>
+      </div>
+    </div>
+
+    <!-- Score Hero -->
+    <div class="result-hero" id="result-hero">
+      <div class="result-main-score">
+        <div class="score-ring" id="score-ring">
+          <div class="score-inner">
+            <span id="main-score">—</span>
+            <small>/10</small>
+          </div>
+        </div>
+        <div class="score-meta">
+          <h2 id="score-label">—</h2>
+          <p id="score-desc">Loading your results...</p>
+          <div class="hire-badge" id="hire-badge"></div>
+        </div>
+      </div>
+      <div class="result-subscores">
+        <div class="subscore-card">
+          <div class="subscore-label">Technical</div>
+          <div class="subscore-val" id="tech-score">—/10</div>
+          <div class="subscore-bar"><div id="tech-bar" class="subscore-fill"></div></div>
+        </div>
+        <div class="subscore-card">
+          <div class="subscore-label">Communication</div>
+          <div class="subscore-val" id="comm-score">—/10</div>
+          <div class="subscore-bar"><div id="comm-bar" class="subscore-fill"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Summary -->
+    <div class="result-grid">
+      <div class="result-card">
+        <h2>AI Summary</h2>
+        <p id="ai-summary">Analyzing your session...</p>
+
+        <div class="result-lists-row">
+          <div>
+            <h3>✅ Top Strengths</h3>
+            <ul id="strengths"></ul>
+          </div>
+          <div>
+            <h3>📈 Areas to Improve</h3>
+            <ul id="improvements"></ul>
+          </div>
+        </div>
+
+        <div class="recommend-section">
+          <h3>📚 Recommended Study Topics</h3>
+          <div id="recommended-topics" class="skill-chips"></div>
+        </div>
+      </div>
+
+      <!-- Per-Question Breakdown -->
+      <div class="result-card">
+        <h2>Question Breakdown</h2>
+        <canvas id="qa-chart" height="200"></canvas>
+      </div>
+    </div>
+
+    <!-- Q&A Review -->
+    <div class="result-card" style="margin-top:24px">
+      <h2>Full Q&A Review</h2>
+      <div id="qa-review"></div>
+    </div>
+
+    <!-- CTA -->
+    <div class="result-cta-row">
+      <a href="/interview" class="btn-primary btn-lg">Practice Again →</a>
+      <a href="/analytics" class="btn-outline btn-lg">View Analytics</a>
+      <a href="/dashboard" class="btn-ghost">Back to Dashboard</a>
+    </div>
+  </main>
+
+  <script>
+    if (!localStorage.getItem('interviewai_user')) window.location.href = '/login';
+
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get('session');
+
+    function loadResults() {
+      const sessions = JSON.parse(localStorage.getItem('interviewai_sessions') || '[]');
+      const session = sessions.find(s => s.id === sessionId) ||
+                      JSON.parse(localStorage.getItem('interviewai_current_session') || 'null');
+
+      if (!session) {
+        document.getElementById('ai-summary').textContent = 'No session data found. Please complete an interview first.';
+        return;
+      }
+
+      const report = session.report || {};
+      const answers = session.answers || [];
+      const overall = session.overall_score || 0;
+
+      // Calculate sub-scores
+      const techScores = answers.map(a => a.technical_score).filter(Boolean);
+      const commScores = answers.map(a => a.communication_score).filter(Boolean);
+      const avgTech = techScores.length ? (techScores.reduce((a,b)=>a+b,0)/techScores.length).toFixed(1) : overall;
+      const avgComm = commScores.length ? (commScores.reduce((a,b)=>a+b,0)/commScores.length).toFixed(1) : overall;
+
+      // Main score
+      document.getElementById('main-score').textContent = overall;
+      const scoreRing = document.getElementById('score-ring');
+      scoreRing.className = `score-ring score-ring-${overall >= 8 ? 'high' : overall >= 6 ? 'mid' : 'low'}`;
+
+      // Labels
+      const labels = {
+        high: ['Excellent Performance! 🎉', 'You demonstrated strong technical knowledge and clear communication.'],
+        mid: ['Good Performance! 👍', 'You showed solid understanding with room for deeper technical detail.'],
+        low: ['Keep Practicing! 💪', 'You are on the right track. Focus on the improvement areas below.']
+      };
+      const tier = overall >= 8 ? 'high' : overall >= 6 ? 'mid' : 'low';
+      document.getElementById('score-label').textContent = labels[tier][0];
+      document.getElementById('score-desc').textContent = labels[tier][1];
+
+      // Hire recommendation
+      const hire = report.hire_recommendation || '';
+      if (hire) {
+        const hireEl = document.getElementById('hire-badge');
+        hireEl.textContent = `AI Verdict: ${hire}`;
+        hireEl.className = `hire-badge hire-${hire.includes('Yes') ? 'yes' : hire.includes('No') ? 'no' : 'maybe'}`;
+      }
+
+      // Sub scores
+      document.getElementById('tech-score').textContent = `${report.technical_score || avgTech}/10`;
+      document.getElementById('comm-score').textContent = `${report.communication_score || avgComm}/10`;
+      document.getElementById('tech-bar').style.width = `${(report.technical_score || avgTech) * 10}%`;
+      document.getElementById('comm-bar').style.width = `${(report.communication_score || avgComm) * 10}%`;
+
+      // AI Summary
+      document.getElementById('ai-summary').textContent = report.summary || 'Overall a solid performance. Review the individual question feedback for detailed improvement tips.';
+
+      // Lists
+      const strengths = report.top_strengths || ['Clear communication', 'Attempted all questions'];
+      const improvements = report.areas_to_improve || ['Add more technical depth', 'Include concrete examples'];
+      document.getElementById('strengths').innerHTML = strengths.map(s=>`<li>${s}</li>`).join('');
+      document.getElementById('improvements').innerHTML = improvements.map(s=>`<li>${s}</li>`).join('');
+
+      const topics = report.recommended_topics || ['Data Structures', 'System Design', 'OOP Principles'];
+      document.getElementById('recommended-topics').innerHTML = topics.map(t=>`<span class="chip">${t}</span>`).join('');
+
+      // Chart
+      if (answers.length > 0) {
+        const ctx = document.getElementById('qa-chart').getContext('2d');
+        new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: answers.map((_, i) => `Q${i+1}`),
+            datasets: [{
+              label: 'Score',
+              data: answers.map(a => a.score || 0),
+              backgroundColor: answers.map(a => a.score >= 8 ? '#22c55e' : a.score >= 6 ? '#f59e0b' : '#ef4444'),
+              borderRadius: 8, borderSkipped: false
+            }]
+          },
+          options: {
+            responsive: true,
+            scales: {
+              y: { beginAtZero: true, max: 10, ticks: { stepSize: 2 }, grid: { color: '#e5e7eb' } },
+              x: { grid: { display: false } }
+            },
+            plugins: { legend: { display: false } }
+          }
+        });
+      }
+
+      // Q&A Review
+      const reviewEl = document.getElementById('qa-review');
+      reviewEl.innerHTML = answers.map((a, i) => `
+        <div class="qa-item">
+          <div class="qa-header">
+            <div class="qa-q-label">Q${i+1}</div>
+            <div class="qa-score score-${a.score >= 8 ? 'high' : a.score >= 6 ? 'mid' : 'low'}">${a.score || 0}/10</div>
+          </div>
+          <p class="qa-question">${a.question}</p>
+          <div class="qa-answer-wrap">
+            <strong>Your Answer:</strong>
+            <p>${a.answer || '(No answer provided)'}</p>
+          </div>
+          <p class="qa-feedback"><strong>Feedback:</strong> ${a.feedback || ''}</p>
+        </div>
+      `).join('');
+    }
+
+    loadResults();
+  </script>
+</body>
+</html>

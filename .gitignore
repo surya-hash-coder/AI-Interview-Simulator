@@ -1,0 +1,34 @@
+# Environment variables — NEVER push this to Git
+.env
+
+# Python virtual environment
+venv/
+env/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Flask
+instance/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
+
+# Fix scripts — not needed in production
+fix.py
+fix2.py
+
+# Logs
+*.log

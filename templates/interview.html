@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Interview – InterviewAI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="app-body interview-body">
+
+  <aside class="sidebar">
+    <div class="sidebar-logo">Interview<span>AI</span></div>
+    <nav class="sidebar-nav">
+      <a href="/dashboard" class="sidebar-link"><span class="s-icon">⊞</span> Dashboard</a>
+      <a href="/upload"    class="sidebar-link"><span class="s-icon">📄</span> Resume</a>
+      <a href="/interview" class="sidebar-link active"><span class="s-icon">🎙️</span> Interview</a>
+      <a href="/analytics" class="sidebar-link"><span class="s-icon">📊</span> Analytics</a>
+    </nav>
+    <div class="sidebar-bottom">
+      <button class="sidebar-link" onclick="localStorage.clear();window.location.href='/'"
+        style="background:none;border:none;width:100%;text-align:left;cursor:pointer;color:inherit;">
+        <span class="s-icon">→</span> Log Out
+      </button>
+    </div>
+  </aside>
+
+  <main class="app-main">
+
+    <!-- ═══════════ SETUP ═══════════ -->
+    <div id="screen-setup">
+      <div class="app-header">
+        <div>
+          <h1 class="app-page-title">Start Interview</h1>
+          <p class="app-page-sub">AI will read your resume and ask questions from it.</p>
+        </div>
+      </div>
+
+      <!-- Resume found banner -->
+      <div id="resume-banner" style="display:none" class="resume-detected-banner">
+        <span>📄</span>
+        <div>
+          <strong>Resume loaded!</strong>
+          <p id="banner-detail"></p>
+        </div>
+      </div>
+
+      <!-- No resume warning -->
+      <div id="no-resume-warn" style="display:none" class="resume-warning-box" style="margin-bottom:20px;">
+        ⚠️ No resume found. <a href="/upload">Upload your resume first →</a>
+        Questions cannot be generated without your resume.
+      </div>
+
+      <div class="setup-grid">
+        <div class="setup-card">
+          <h2>Settings</h2>
+
+          <!-- Mode: resume is default and recommended -->
+          <div class="form-group">
+            <label>Interview Mode</label>
+            <select id="mode" class="form-input" onchange="onModeChange()">
+              <option value="resume">📄 Resume-Based (AI reads YOUR resume)</option>
+              <option value="general">General Software Engineering</option>
+              <option value="dsa">Data Structures & Algorithms</option>
+              <option value="system">System Design</option>
+              <option value="frontend">Frontend Development</option>
+              <option value="backend">Backend Development</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Difficulty</label>
+            <select id="difficulty" class="form-input">
+              <option value="beginner">Beginner</option>
+              <option value="intermediate" selected>Intermediate</option>
+              <option value="advanced">Advanced</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Number of Questions</label>
+            <select id="count" class="form-input">
+              <option value="3">3 questions (~5 min)</option>
+              <option value="5" selected>5 questions (~10 min)</option>
+              <option value="10">10 questions (~20 min)</option>
+            </select>
+          </div>
+
+          <button class="btn-primary btn-full" onclick="startInterview()">
+            Begin Interview →
+          </button>
+        </div>
+
+        <div class="setup-tips">
+          <h3>How Resume Mode Works</h3>
+          <div class="tip-item">
+            <span>📄</span>
+            <div><strong>Reads your full resume</strong><p>AI scans every skill, project, and experience you listed.</p></div>
+          </div>
+          <div class="tip-item">
+            <span>🤖</span>
+            <div><strong>Generates specific questions</strong><p>Every question comes from something in your resume — nothing generic.</p></div>
+          </div>
+          <div class="tip-item">
+            <span>🎙</span>
+            <div><strong>Answer by voice or text</strong><p>Click the Voice button or type your answer.</p></div>
+          </div>
+          <div class="tip-item">
+            <span>⚡</span>
+            <div><strong>Instant AI feedback</strong><p>Get scored and reviewed after every answer.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ═══════════ LOADING ═══════════ -->
+    <div id="screen-loading" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:center;min-height:65vh">
+        <div style="text-align:center;max-width:500px;padding:40px">
+
+          <div class="loading-dots" style="justify-content:center;gap:10px;margin-bottom:28px">
+            <span style="width:14px;height:14px"></span>
+            <span style="width:14px;height:14px"></span>
+            <span style="width:14px;height:14px"></span>
+          </div>
+
+          <h2 id="load-title" style="font-family:var(--font-display);font-size:1.5rem;font-weight:700;margin-bottom:10px">
+            Scanning your resume...
+          </h2>
+          <p id="load-detail" style="color:var(--text-2);font-size:0.9rem;line-height:1.6;margin-bottom:28px">
+            AI is reading your resume and generating questions. Please wait.
+          </p>
+
+          <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:12px">
+            <div id="load-bar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--indigo),#8b5cf6);border-radius:3px;transition:width 0.5s"></div>
+          </div>
+          <p id="load-step" style="font-size:0.78rem;color:var(--text-3)"></p>
+
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ═══════════ INTERVIEW ═══════════ -->
+    <div id="screen-interview" style="display:none">
+
+      <!-- Progress -->
+      <div class="interview-progress">
+        <div class="progress-info">
+          <span id="q-counter">Question 1 of 5</span>
+          <span id="timer" class="timer-badge">60s</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="prog-fill" style="width:0%"></div>
+        </div>
+      </div>
+
+      <!-- Badge -->
+      <div id="mode-badge" class="interview-type-badge" style="display:none;margin-bottom:16px"></div>
+
+      <!-- Question -->
+      <div class="question-card">
+        <div class="question-label">Question <span id="q-num">1</span></div>
+        <div id="q-text" class="question-text" style="display:none"></div>
+        <div id="q-spin" class="loading-dots" style="display:none">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+
+      <!-- Answer -->
+      <div id="answer-area" class="answer-area" style="display:none">
+        <div class="answer-header">
+          <label>Your Answer</label>
+          <button class="voice-btn" id="voice-btn" onclick="toggleVoice()">🎙 Voice</button>
+        </div>
+        <div id="voice-status" class="voice-status" style="display:none">
+          <div class="voice-wave"><span></span><span></span><span></span><span></span><span></span></div>
+          <span>Listening...</span>
+        </div>
+        <textarea id="answer-box" class="form-input answer-textarea"
+          placeholder="Type your answer here, or click Voice to speak..." rows="6"></textarea>
+        <div class="answer-actions">
+          <button class="btn-outline" onclick="skipQ()">Skip</button>
+          <button class="btn-primary" onclick="submitAnswer(false)">Submit Answer →</button>
+        </div>
+      </div>
+
+      <!-- Eval -->
+      <div id="eval-card" class="eval-card" style="display:none">
+        <div class="eval-header">
+          <h2>AI Evaluation</h2>
+          <div class="eval-score" id="eval-score">0/10</div>
+        </div>
+        <div class="eval-scores-row">
+          <div class="eval-score-mini"><span>Technical</span><strong id="tech-score">—</strong></div>
+          <div class="eval-score-mini"><span>Communication</span><strong id="comm-score">—</strong></div>
+        </div>
+        <p class="eval-feedback" id="eval-feedback"></p>
+        <div class="eval-lists">
+          <div class="eval-section">
+            <div class="eval-section-title">✅ Strengths</div>
+            <ul id="strengths-list"></ul>
+          </div>
+          <div class="eval-section">
+            <div class="eval-section-title">📈 Improve</div>
+            <ul id="improve-list"></ul>
+          </div>
+        </div>
+        <div class="eval-hint" id="eval-hint"></div>
+        <button class="btn-primary" id="next-btn" onclick="nextQ()">Next Question →</button>
+      </div>
+
+      <!-- Evaluating -->
+      <div id="eval-loading" class="eval-loading" style="display:none">
+        <div class="loading-dots"><span></span><span></span><span></span></div>
+        <p>AI is evaluating your answer...</p>
+      </div>
+
+    </div>
+  </main>
+
+
+  <script>
+    if (!localStorage.getItem('interviewai_user')) window.location.href = '/login';
+
+    // ─── State ────────────────────────────────────────────────────
+    var mode       = 'resume';
+    var level      = 'intermediate';
+    var totalQ     = 5;
+    var currentQ   = 0;
+    var questions  = [];
+    var answers    = [];
+
+    var resumeText = '';    // FULL resume text — sent to AI
+    var skills     = [];
+
+    var timerIv   = null;
+    var timeLeft  = 60;
+    var barIv     = null;
+    var barPct    = 0;
+    var recog     = null;
+    var listening = false;
+
+
+    // ─── Load resume from localStorage ───────────────────────────
+    (function init(){
+      var raw = null;
+      try { raw = JSON.parse(localStorage.getItem('interviewai_resume') || 'null'); } catch(e){}
+
+      if (raw && raw.resume_text && raw.resume_text.length > 30) {
+        resumeText = raw.resume_text;
+        skills     = raw.skills || [];
+
+        console.log('[INIT] ✅ Resume loaded:', {
+          text_length: resumeText.length,
+          skills:      skills,
+          questions:   (raw.questions || []).length,
+          preview:     resumeText.slice(0,200)
+        });
+
+        document.getElementById('resume-banner').style.display = 'flex';
+        document.getElementById('banner-detail').textContent   =
+          resumeText.length + ' chars · Skills: ' + (skills.slice(0,5).join(', ') || 'none detected') +
+          ' · ' + (raw.questions||[]).length + ' pre-generated questions';
+
+        // Auto-select resume mode
+        document.getElementById('mode').value = 'resume';
+
+      } else {
+        console.warn('[INIT] ⚠️ No resume text in localStorage:', raw);
+        // Show resume mode but warn
+        document.getElementById('no-resume-warn').style.display = 'block';
+      }
+
+      // Handle URL param ?mode=resume
+      var p = new URLSearchParams(window.location.search);
+      if (p.get('mode')) document.getElementById('mode').value = p.get('mode');
+    })();
+
+
+    function onModeChange(){
+      var m = document.getElementById('mode').value;
+      if (m === 'resume' && !resumeText) {
+        document.getElementById('no-resume-warn').style.display = 'block';
+      } else {
+        document.getElementById('no-resume-warn').style.display = 'none';
+      }
+    }
+
+
+    // ─── Start Interview ──────────────────────────────────────────
+    async function startInterview() {
+      mode   = document.getElementById('mode').value;
+      level  = document.getElementById('difficulty').value;
+      totalQ = parseInt(document.getElementById('count').value);
+
+      // Block if resume mode but no resume
+      if (mode === 'resume' && (!resumeText || resumeText.length < 30)) {
+        alert('No resume found.\n\nPlease upload your resume first at the Resume page.');
+        window.location.href = '/upload';
+        return;
+      }
+
+      // Show loading
+      show('screen-loading');
+
+      if (mode === 'resume') {
+        document.getElementById('load-title').textContent  = 'AI is scanning your resume...';
+        document.getElementById('load-detail').textContent =
+          'Reading every skill, project, and experience to generate ' + totalQ + ' specific questions. Takes 15–25 seconds.';
+      } else {
+        document.getElementById('load-title').textContent  = 'Generating questions...';
+        document.getElementById('load-detail').textContent = 'Creating ' + totalQ + ' ' + level + '-level questions.';
+      }
+
+      startBar();
+      setStep('Connecting to AI...');
+
+      // ── Fetch questions from AI ──────────────────────────────
+      questions = [];
+      try {
+        questions = await fetchQuestions();
+      } catch(e) {
+        console.error('[START] Error:', e);
+      }
+
+      console.log('[START] Questions received (' + questions.length + '):');
+      questions.forEach(function(q,i){ console.log('  Q'+(i+1)+': '+q); });
+
+      stopBar();
+
+      // If resume mode and no questions → hard stop, show error
+      if (mode === 'resume' && questions.length === 0) {
+        show('screen-setup');
+        alert(
+          '❌ Could not generate questions from your resume.\n\n' +
+          'Possible causes:\n' +
+          '• No internet connection\n' +
+          '• DeepSeek API is down\n\n' +
+          'To diagnose: visit http://localhost:5000/test\n' +
+          'Check the terminal window for error messages.'
+        );
+        return;
+      }
+
+      // If topic mode and no questions → generic fallback (acceptable)
+      while (questions.length < totalQ) {
+        questions.push('Describe a technical challenge you have worked on and how you solved it.');
+      }
+      questions = questions.slice(0, totalQ);
+
+      // Show interview
+      show('screen-interview');
+
+      var badge = document.getElementById('mode-badge');
+      badge.textContent   = mode === 'resume' ? '📄 Questions from YOUR resume' : '🎯 ' + mode + ' interview';
+      badge.style.display = 'inline-flex';
+
+      answers = [];
+      showQuestion(0);
+    }
+
+
+    // ─── Fetch Questions ──────────────────────────────────────────
+    async function fetchQuestions() {
+
+      if (mode === 'resume') {
+        // ── Try stored questions first ──────────────────────────
+        var raw = null;
+        try { raw = JSON.parse(localStorage.getItem('interviewai_resume')||'null'); } catch(e){}
+        var stored = ((raw && raw.questions) || []).filter(function(q){ return q && q.trim().length > 15; });
+
+        console.log('[FETCH] Stored questions:', stored.length);
+        console.log('[FETCH] Resume text length:', resumeText.length);
+
+        if (stored.length >= totalQ) {
+          setStep('Using questions from your resume scan...');
+          console.log('[FETCH] ✅ Enough stored questions, using them');
+          return shuffle(stored.slice()).slice(0, totalQ);
+        }
+
+        // ── Call AI with full resume text ───────────────────────
+        setStep('AI reading your resume...');
+        console.log('[FETCH] Calling /get_questions with full resume text');
+        console.log('[FETCH] Resume preview:\n' + resumeText.slice(0, 300));
+
+        try {
+          var resp = await fetch('/get_questions', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              resume_text: resumeText,   // ← FULL TEXT
+              skills:      skills,
+              count:       totalQ,
+              level:       level,
+              exclude:     stored
+            })
+          });
+
+          var data = await resp.json();
+          console.log('[FETCH] Response:', data.success, 'questions:', (data.questions||[]).length);
+
+          if (data.success && data.questions && data.questions.length > 0) {
+            var all = stored.length > 0
+              ? shuffle(stored.concat(data.questions))
+              : data.questions;
+            return all.slice(0, totalQ);
+          }
+
+          console.error('[FETCH] AI failed:', data.error);
+
+          // Use stored even if not enough
+          if (stored.length > 0) {
+            console.warn('[FETCH] Using partial stored:', stored.length);
+            return stored;
+          }
+          return [];
+
+        } catch(e) {
+          console.error('[FETCH] Network error:', e);
+          return stored.length > 0 ? stored : [];
+        }
+      }
+
+      // ── Topic mode ─────────────────────────────────────────────
+      setStep('Generating topic questions...');
+      try {
+        var resp2 = await fetch('/get_questions', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            resume_text: '',       // no resume for topic mode
+            skills:      [],
+            count:       totalQ,
+            level:       level,
+            topic:       mode,
+            exclude:     []
+          })
+        });
+        var d2 = await resp2.json();
+        if (d2.success && d2.questions && d2.questions.length > 0) return d2.questions;
+      } catch(e) { console.error('[FETCH] Topic error:', e); }
+
+      return [];
+    }
+
+
+    // ─── Show Question ────────────────────────────────────────────
+    function showQuestion(idx) {
+      currentQ = idx;
+      var n    = idx + 1;
+
+      document.getElementById('q-counter').textContent  = 'Question ' + n + ' of ' + totalQ;
+      document.getElementById('q-num').textContent      = n;
+      document.getElementById('prog-fill').style.width  = ((idx/totalQ)*100) + '%';
+
+      hide('answer-area'); hide('eval-card'); hide('eval-loading');
+      document.getElementById('answer-box').value       = '';
+      document.getElementById('q-text').style.display   = 'none';
+      document.getElementById('q-spin').style.display   = 'flex';
+
+      setTimeout(function(){
+        var q = questions[idx] || 'Describe an important technical challenge from your work.';
+        document.getElementById('q-spin').style.display   = 'none';
+        document.getElementById('q-text').textContent     = q;
+        document.getElementById('q-text').style.display   = 'block';
+        document.getElementById('answer-area').style.display = 'block';
+        startTimer();
+      }, 350);
+    }
+
+
+    // ─── Submit Answer ────────────────────────────────────────────
+    async function submitAnswer(timeout) {
+      clearInterval(timerIv);
+      stopVoice();
+
+      var ans = document.getElementById('answer-box').value.trim();
+      var q   = questions[currentQ] || '';
+
+      if (!ans && !timeout) {
+        document.getElementById('answer-box').style.borderColor = '#ef4444';
+        setTimeout(function(){ document.getElementById('answer-box').style.borderColor = ''; }, 2000);
+        return;
+      }
+
+      hide('answer-area');
+      document.getElementById('eval-loading').style.display = 'flex';
+
+      try {
+        var r = await fetch('/evaluate_answer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: q, answer: ans || '(No answer — time expired)' })
+        });
+        var d  = await r.json();
+        var ev = d.evaluation || {};
+
+        answers.push({
+          question:            q,
+          answer:              ans || '(No answer)',
+          score:               ev.score               || 5,
+          technical_score:     ev.technical_score     || 5,
+          communication_score: ev.communication_score || 5,
+          feedback:            ev.feedback            || ''
+        });
+        showEval(ev);
+
+      } catch(e) {
+        answers.push({ question:q, answer:ans||'', score:5, technical_score:5, communication_score:5, feedback:'Evaluation unavailable.' });
+        showEval({ score:5, technical_score:5, communication_score:5, feedback:'Could not evaluate.', strengths:[], improvements:[], ideal_answer_hint:'' });
+      }
+    }
+
+    function showEval(ev) {
+      hide('eval-loading');
+      document.getElementById('eval-card').style.display = 'block';
+      var s = ev.score || 0;
+      document.getElementById('eval-score').textContent    = s+'/10';
+      document.getElementById('eval-score').className      = 'eval-score score-'+(s>=8?'high':s>=6?'mid':'low');
+      document.getElementById('tech-score').textContent    = (ev.technical_score    ||s)+'/10';
+      document.getElementById('comm-score').textContent    = (ev.communication_score||s)+'/10';
+      document.getElementById('eval-feedback').textContent = ev.feedback||'';
+      document.getElementById('strengths-list').innerHTML  = (ev.strengths   ||[]).map(function(x){return '<li>'+x+'</li>';}).join('');
+      document.getElementById('improve-list').innerHTML    = (ev.improvements||[]).map(function(x){return '<li>'+x+'</li>';}).join('');
+      document.getElementById('eval-hint').textContent     = ev.ideal_answer_hint ? '💡 '+ev.ideal_answer_hint : '';
+      document.getElementById('next-btn').textContent      = (currentQ+1>=totalQ) ? 'View Results →' : 'Next Question →';
+    }
+
+    function nextQ(){ if(currentQ+1>=totalQ) finish(); else showQuestion(currentQ+1); }
+
+    function skipQ(){
+      clearInterval(timerIv);
+      answers.push({ question:questions[currentQ]||'', answer:'(Skipped)', score:0, technical_score:0, communication_score:0, feedback:'Skipped.' });
+      if(currentQ+1>=totalQ){ finish(); return; }
+      showQuestion(currentQ+1);
+    }
+
+
+    // ─── Finish ───────────────────────────────────────────────────
+    async function finish(){
+      clearInterval(timerIv);
+      var scores  = answers.map(function(a){return a.score;}).filter(function(s){return s>0;});
+      var overall = scores.length ? parseFloat((scores.reduce(function(a,b){return a+b;},0)/scores.length).toFixed(1)) : 0;
+      var sid = Date.now().toString();
+      var session = { id:sid, type:mode, date:new Date().toISOString(), overall_score:overall, answers:answers, questions_count:totalQ, questions:questions };
+      var all = JSON.parse(localStorage.getItem('interviewai_sessions')||'[]');
+      all.push(session);
+      localStorage.setItem('interviewai_sessions', JSON.stringify(all));
+      localStorage.setItem('interviewai_current_session', JSON.stringify(session));
+      try {
+        var r = await fetch('/generate_report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({qa_pairs:answers})});
+        var d = await r.json();
+        if(d.success){ session.report=d.report; localStorage.setItem('interviewai_current_session',JSON.stringify(session)); }
+      } catch(e){}
+      window.location.href = '/result?session='+sid;
+    }
+
+
+    // ─── Timer ────────────────────────────────────────────────────
+    function startTimer(){
+      clearInterval(timerIv); timeLeft=60; updateTimer();
+      timerIv = setInterval(function(){
+        timeLeft--; updateTimer();
+        if(timeLeft<=0){
+          clearInterval(timerIv);
+          if(document.getElementById('eval-card').style.display!=='block') submitAnswer(true);
+        }
+      }, 1000);
+    }
+    function updateTimer(){
+      var el = document.getElementById('timer');
+      el.textContent = timeLeft+'s';
+      el.className   = 'timer-badge'+(timeLeft<=10?' timer-urgent':timeLeft<=20?' timer-warn':'');
+    }
+
+    // ─── Loading bar ──────────────────────────────────────────────
+    function startBar(){
+      barPct=0; clearInterval(barIv);
+      barIv = setInterval(function(){
+        barPct = Math.min(barPct+Math.random()*2.5, 88);
+        document.getElementById('load-bar').style.width = barPct+'%';
+      }, 600);
+    }
+    function stopBar(){ clearInterval(barIv); document.getElementById('load-bar').style.width='100%'; }
+    function setStep(s){ document.getElementById('load-step').textContent=s; console.log('[STEP] '+s); }
+
+    // ─── Voice ────────────────────────────────────────────────────
+    function toggleVoice(){ if(!window.SpeechRecognition&&!window.webkitSpeechRecognition){alert('Voice needs Chrome.');return;} listening?stopVoice():startVoice(); }
+    function startVoice(){
+      var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recog = new SR();
+      recog.lang = 'en-US';
+      recog.continuous = true;
+      recog.interimResults = true;
+
+      recog.onresult = function(e) {
+        var finalText = '';
+        var interimText = '';
+        for (var i = 0; i < e.results.length; i++) {
+          if (e.results[i].isFinal) {
+            finalText += e.results[i][0].transcript + ' ';
+          } else {
+            interimText += e.results[i][0].transcript;
+          }
+        }
+        // Show final words + current interim word — no repetition
+        document.getElementById('answer-box').value = finalText + interimText;
+      };
+
+      recog.onend = function() {
+        // Auto restart if still supposed to be listening
+        if (listening) {
+          try { recog.start(); } catch(e) {}
+        }
+      };
+      recog.onerror = function(e) {
+        if (e.error !== 'no-speech') {
+          listening = false; updateVoice();
+        }
+      };
+
+      recog.start();
+      listening = true;
+      updateVoice();
+    }
+    function stopVoice(){ if(recog){try{recog.stop();}catch(e){}} listening=false; updateVoice(); }
+    function updateVoice(){
+      document.getElementById('voice-btn').textContent      = listening?'⏹ Stop':'🎙 Voice';
+      document.getElementById('voice-btn').className        = listening?'voice-btn voice-active':'voice-btn';
+      document.getElementById('voice-status').style.display = listening?'flex':'none';
+    }
+
+    // ─── Helpers ──────────────────────────────────────────────────
+    function show(id){ document.getElementById('screen-setup').style.display='none'; document.getElementById('screen-loading').style.display='none'; document.getElementById('screen-interview').style.display='none'; document.getElementById(id).style.display='block'; }
+    function hide(id){ document.getElementById(id).style.display='none'; }
+    function shuffle(a){ for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;} return a; }
+  </script>
+
+</body>
+</html>

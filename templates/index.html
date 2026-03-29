@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>InterviewAI – Practice Real AI Interviews</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="landing-body">
+
+  <!-- ── NAV ── -->
+  <nav class="nav">
+    <div class="nav-logo">Interview<span>AI</span></div>
+    <div class="nav-links">
+      <a href="/login" class="btn-ghost">Log in</a>
+      <a href="/signup" class="btn-primary">Get Started</a>
+    </div>
+  </nav>
+
+  <!-- ── HERO ── -->
+  <section class="hero">
+    <div class="hero-bg">
+      <div class="orb orb-1"></div>
+      <div class="orb orb-2"></div>
+      <div class="orb orb-3"></div>
+    </div>
+    <div class="hero-content">
+      <div class="hero-badge">✦ AI-Powered Interview Practice</div>
+      <h1 class="hero-title">
+        Ace Your Next<br>
+        <span class="gradient-text">Technical Interview</span>
+      </h1>
+      <p class="hero-sub">
+        Practice real AI interviews, get instant feedback, and improve your skills
+        with personalized coaching—powered by advanced AI.
+      </p>
+      <div class="hero-cta">
+        <a href="/signup" class="btn-primary btn-lg">Start Practicing Free →</a>
+        <a href="#features" class="btn-outline btn-lg">See How It Works</a>
+      </div>
+      <div class="hero-stats">
+        <div class="stat"><strong>10K+</strong><span>Interviews Practiced</span></div>
+        <div class="stat-div"></div>
+        <div class="stat"><strong>94%</strong><span>Success Rate</span></div>
+        <div class="stat-div"></div>
+        <div class="stat"><strong>50+</strong><span>Tech Topics</span></div>
+      </div>
+    </div>
+    <!-- Floating card preview -->
+    <div class="hero-card-wrap">
+      <div class="hero-card">
+        <div class="hc-header">
+          <div class="hc-dot red"></div><div class="hc-dot yellow"></div><div class="hc-dot green"></div>
+          <span>Live Interview Session</span>
+        </div>
+        <div class="hc-question">
+          <div class="hc-label">Question 3 of 5</div>
+          <p>"Explain the difference between a stack and a queue, and give a real-world use case for each."</p>
+        </div>
+        <div class="hc-timer">⏱ 00:42 remaining</div>
+        <div class="hc-answer">
+          <div class="hc-mic">🎙 Recording...</div>
+          <div class="hc-wave"><span></span><span></span><span></span><span></span><span></span></div>
+        </div>
+        <div class="hc-score">
+          <div class="hc-score-bar" style="width:82%"></div>
+          <span>Previous: 8.2/10</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FEATURES ── -->
+  <section class="features" id="features">
+    <div class="section-label">What You Get</div>
+    <h2 class="section-title">Everything You Need to<br><span class="gradient-text">Land the Job</span></h2>
+    <div class="features-grid">
+      <div class="feature-card fc-accent-1">
+        <div class="fc-icon">🤖</div>
+        <h3>AI-Generated Questions</h3>
+        <p>Dynamic questions tailored to your skill level and the role you're targeting.</p>
+      </div>
+      <div class="feature-card fc-accent-2">
+        <div class="fc-icon">📄</div>
+        <h3>Resume-Based Interviews</h3>
+        <p>Upload your resume and get questions specifically based on your experience.</p>
+      </div>
+      <div class="feature-card fc-accent-3">
+        <div class="fc-icon">🎙️</div>
+        <h3>Voice Answer Support</h3>
+        <p>Speak your answers naturally using the built-in voice recognition system.</p>
+      </div>
+      <div class="feature-card fc-accent-4">
+        <div class="fc-icon">⚡</div>
+        <h3>Instant AI Feedback</h3>
+        <p>Receive detailed scores, strengths, and improvement tips after every answer.</p>
+      </div>
+      <div class="feature-card fc-accent-5">
+        <div class="fc-icon">📊</div>
+        <h3>Performance Analytics</h3>
+        <p>Track your progress over time with beautiful charts and detailed breakdowns.</p>
+      </div>
+      <div class="feature-card fc-accent-6">
+        <div class="fc-icon">🎯</div>
+        <h3>Personalized Coaching</h3>
+        <p>AI recommendations on what topics to study based on your weak areas.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── HOW IT WORKS ── -->
+  <section class="how-it-works">
+    <div class="section-label">The Process</div>
+    <h2 class="section-title">How <span class="gradient-text">InterviewAI</span> Works</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div class="step-content">
+          <h3>Create Your Account</h3>
+          <p>Sign up in seconds with your email. No credit card required.</p>
+        </div>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div class="step-content">
+          <h3>Upload Your Resume</h3>
+          <p>Our AI reads your resume and crafts tailored questions.</p>
+        </div>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <div class="step-content">
+          <h3>Start the Interview</h3>
+          <p>Answer questions by voice or text in a real interview simulation.</p>
+        </div>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <div class="step-content">
+          <h3>Get Your Report</h3>
+          <p>Receive a full AI evaluation with scores and growth tips.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CTA BANNER ── -->
+  <section class="cta-banner">
+    <div class="cta-orb"></div>
+    <h2>Ready to Impress Your Next Interviewer?</h2>
+    <p>Join thousands of developers who practice smarter with InterviewAI.</p>
+    <a href="/signup" class="btn-primary btn-lg">Get Started for Free →</a>
+  </section>
+
+  <!-- ── FOOTER ── -->
+  <footer class="footer">
+    <div class="footer-logo">Interview<span>AI</span></div>
+    <p>© 2024 InterviewAI. Built with AI to help you succeed.</p>
+  </footer>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
