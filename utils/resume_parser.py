@@ -18,6 +18,7 @@ def extract_resume_text(pdf_bytes):
 
     results = []
 
+
     # ── Method 1: pypdf ──────────────────────────────────────
     try:
         import pypdf
