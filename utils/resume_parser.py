@@ -9,17 +9,10 @@ import re
 
 
 def extract_resume_text(pdf_bytes):
-    """
-    Try every available method to extract text from the PDF.
-    Returns the best result found.
-    """
-    print(f"\n[PARSER] PDF size: {len(pdf_bytes)} bytes")
-    print("[PARSER] Trying all extraction methods...")
+    """Extract all text from a PDF file given as bytes."""
+    text = ""
 
-    results = []
-
-
-    # ── Method 1: pypdf ──────────────────────────────────────
+    # Try pypdf first
     try:
         import pypdf
         print(f"[PARSER] pypdf version: {pypdf.__version__}")
