@@ -23,6 +23,11 @@ GROQ_KEY   = os.getenv("GROQ_API_KEY")
 GROQ_URL   = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL = "llama-3.3-70b-versatile"
 
+# Configuration constants
+MAX_RESUME_SIZE = 5 * 1024 * 1024  # 5MB
+MAX_RESUME_TEXT = 12000  # Characters
+MIN_RESUME_TEXT = 30  # Minimum text to consider valid
+
 
 # ─────────────────────────────────────────────────────────────
 # Call Groq AI
@@ -53,7 +58,7 @@ def ask_ai(prompt, system="You are a senior technical interviewer."):
                 "max_tokens":  2048,
                 "temperature": 0.8
             },
-            timeout=60
+            timeout=30  # FIXED: Reduced from 60s for better UX
         )
         r.raise_for_status()
         out = r.json()["choices"][0]["message"]["content"]
@@ -63,7 +68,7 @@ def ask_ai(prompt, system="You are a senior technical interviewer."):
         print("[AI ERROR] Cannot reach Groq — check internet connection")
         return None
     except requests.exceptions.Timeout:
-        print("[AI ERROR] Timed out after 60s")
+        print("[AI ERROR] Timed out after 30s")
         return None
     except Exception as e:
         print(f"[AI ERROR] {e}")
@@ -88,7 +93,9 @@ def get_json(text):
         if a != -1 and b > a:
             try:
                 return json.loads(s[a:b+1])
-            except:
+            except json.JSONDecodeError as e:
+                # FIXED: Log JSON parsing errors instead of silent fail
+                print(f"[JSON ERROR] Failed to parse JSON: {e}")
                 pass
     return None
 
@@ -170,10 +177,16 @@ def upload_resume():
     print("\n" + "★" * 60)
     print("[UPLOAD] Resume received")
 
+    # FIXED: Added file size validation
     if "resume" not in request.files:
         return jsonify({"success": False, "error": "No file uploaded"}), 400
 
     file = request.files["resume"]
+    
+    # Check file size
+    if file.content_length and file.content_length > MAX_RESUME_SIZE:
+        return jsonify({"success": False, "error": f"File too large. Max size: {MAX_RESUME_SIZE // 1024 // 1024}MB"}), 413
+    
     if not file.filename.lower().endswith(".pdf"):
         return jsonify({"success": False, "error": "Only PDF files accepted"}), 400
 
@@ -184,7 +197,7 @@ def upload_resume():
         print(f"[UPLOAD] Extracted {len(resume_text)} characters")
         print(f"[UPLOAD] Text:\n{'─'*40}\n{resume_text}\n{'─'*40}")
 
-        if not resume_text or len(resume_text.strip()) < 30:
+        if not resume_text or len(resume_text.strip()) < MIN_RESUME_TEXT:
             return jsonify({
                 "success": False,
                 "error": "Could not extract text from PDF. Make sure it is a text-based PDF, not a scanned image."
@@ -192,7 +205,7 @@ def upload_resume():
 
         skills        = find_skills(resume_text)
         skills_str    = ", ".join(skills) if skills else "various technical skills"
-        resume_for_ai = resume_text.strip()[:6000]
+        resume_for_ai = resume_text.strip()[:MAX_RESUME_TEXT]  # FIXED: Increased from 6000
 
         prompt = f"""You are a senior technical interviewer. You have just read this candidate's complete resume.
 
@@ -272,7 +285,7 @@ def get_questions():
     print(f"\n[GET_Q] {count} questions | resume: {len(resume_text)} chars | topic: {topic}")
 
     # Topic mode
-    if (not resume_text or len(resume_text.strip()) < 30) and topic and topic != "resume":
+    if (not resume_text or len(resume_text.strip()) < MIN_RESUME_TEXT) and topic and topic != "resume":
         topics = {
             "general":  "general software engineering (OOP, design patterns, APIs, databases)",
             "dsa":      "data structures and algorithms (arrays, trees, graphs, sorting, complexity)",
@@ -293,9 +306,9 @@ def get_questions():
                 qs = [str(q).strip() for q in p if str(q).strip()]
         if qs:
             return jsonify({"success": True, "questions": qs[:count]})
-        return jsonify({"success": False, "questions": [], "error": "Could not generate questions"})
+        return jsonify({"success": False, "questions": [], "error": "Could not generate questions"}), 500
 
-    if not resume_text or len(resume_text.strip()) < 30:
+    if not resume_text or len(resume_text.strip()) < MIN_RESUME_TEXT:
         return jsonify({"success": False, "questions": [], "error": "Resume text is empty. Re-upload your resume."}), 400
 
     skills_str  = ", ".join(skills) if skills else "see resume"
@@ -304,7 +317,7 @@ def get_questions():
     prompt = f"""You are a senior technical interviewer. Read this resume carefully.
 
 RESUME:
-{resume_text[:6000]}
+{resume_text[:MAX_RESUME_TEXT]}
 
 SKILLS: {skills_str}
 DIFFICULTY: {level}
@@ -332,7 +345,7 @@ Return ONLY a JSON array of exactly {count} strings. Nothing else."""
     if questions:
         return jsonify({"success": True, "questions": questions[:count]})
 
-    return jsonify({"success": False, "questions": [], "error": "AI could not generate questions. Visit /test to diagnose."})
+    return jsonify({"success": False, "questions": [], "error": "AI could not generate questions. Visit /test to diagnose."}), 500
 
 
 # ─────────────────────────────────────────────────────────────
@@ -346,6 +359,10 @@ def evaluate_answer():
 
     if not question or not answer:
         return jsonify({"success": False, "error": "Missing data"}), 400
+
+    # FIXED: Added input length validation
+    if len(question) > 2000 or len(answer) > 5000:
+        return jsonify({"success": False, "error": "Input too long"}), 413
 
     raw = ask_ai(
         f"""Evaluate this interview answer.
@@ -370,11 +387,8 @@ Return ONLY this JSON:
     if isinstance(result, dict) and "score" in result:
         return jsonify({"success": True, "evaluation": result})
 
-    return jsonify({"success": True, "evaluation": {
-        "score": 5, "technical_score": 5, "communication_score": 6,
-        "feedback": "Could not evaluate — AI unavailable.",
-        "strengths": [], "improvements": [], "ideal_answer_hint": ""
-    }})
+    # FIXED: Return consistent error code (500) instead of 200
+    return jsonify({"success": False, "error": "Could not evaluate answer"}), 500
 
 
 # ─────────────────────────────────────────────────────────────
@@ -418,8 +432,8 @@ Return ONLY this JSON:
 
     return jsonify({"success": False, "error": "Could not generate report"}), 500
 
-import os
 
 if __name__ == "__main__":
+    # FIXED: Removed duplicate import statement (was on line 421)
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
